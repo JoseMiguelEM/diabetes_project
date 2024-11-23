@@ -4,7 +4,8 @@ from components.eda.data_loader import load_dataset
 from data_processing.dataset_processor import DatasetProcessor
 from model_training.model_trainer import ModelTrainer
 from utils.project_utils import get_project_root
-
+import pandas as pd
+from sklearn.model_selection import train_test_split
 def process_and_train_if_needed():
     """Procesa el dataset y entrena el modelo si no existen"""
     project_root = get_project_root()

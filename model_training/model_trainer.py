@@ -6,7 +6,7 @@ from utils.project_utils import get_project_root
 from sklearn.metrics import classification_report
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import json
 class ModelTrainer:
     def __init__(self):
         self.project_root = get_project_root()
