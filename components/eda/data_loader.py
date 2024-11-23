@@ -3,14 +3,16 @@ import pandas as pd
 import numpy as np
 import os
 
+def get_project_root():
+    """Obtiene la ruta raíz del proyecto"""
+    return r"C:\Proyecto vscode\diabetes_project"
+
 def load_dataset(filepath=None):
     """
     Carga el dataset y realiza la preparación inicial
     """
     if filepath is None:
-        # Construir ruta relativa desde la ubicación del script
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+        project_root = get_project_root()
         filepath = os.path.join(project_root, 'data', 'dataset.csv')
     
     if not os.path.exists(filepath):

@@ -1,99 +1,81 @@
-# src/pages/technical_pages.py
 import streamlit as st
+from utils.session_state import initialize_session_state, get_data
+from components.eda.visualization import plot_numeric_distribution, plot_correlation_matrix
+from components.eda.correlation import get_correlation_matrix, get_high_correlation_pairs
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-from utils.session_state import get_data
-from data_processing.dataset_processor import DatasetProcessor
-from components.eda.correlation import get_correlation_matrix, get_feature_correlations_with_target, get_high_correlation_pairs
-from components.eda.visualization import plot_numeric_distribution, plot_correlation_matrix, plot_class_distribution
-from components.eda.data_loader import get_feature_types
-from components.eda.balance import analyze_class_balance
+import matplotlib.pyplot as plt
 
-def show_data_preparation():
-    st.title('🔄 Data Preparation')
+def main():
+    st.set_page_config(
+        page_title="Basic EDA - Diabetes Analysis",
+        layout="wide"
+    )
     
-    processor = DatasetProcessor()
+    initialize_session_state()
     
-    st.write("""
-    ### Dataset Processing Steps
-    Follow these steps to prepare the optimal dataset:
-    """)
+    # Verificar tipo de usuario
+    if st.session_state.user_type != 'Data Analyst':
+        st.warning("This page is only accessible to Data Analysts")
+        return
     
-    # Análisis inicial
-    st.subheader("1. Initial Analysis")
-    if st.button("Analyze Original Dataset"):
-        initial_dist = processor.load_data()
+    st.title('📊 Basic Exploratory Data Analysis')
+    
+    try:
+        df = get_data(use_processed=True)
         
-        col1, col2 = st.columns(2)
+        # Univariate Analysis
+        st.header("Univariate Analysis")
+        
+        # Variable Selection
+        col1, col2 = st.columns([1, 3])
         with col1:
-            st.write("Class Distribution:")
-            st.write(pd.DataFrame({
-                'Class': initial_dist['distribution'].keys(),
-                'Count': initial_dist['distribution'].values(),
-                'Percentage': [f"{v:.2f}%" for v in initial_dist['percentages'].values()]
-            }))
+            variable = st.selectbox(
+                'Select Variable',
+                options=df.columns.tolist(),
+                key='univariate_var'
+            )
         
         with col2:
-            fig, ax = plt.subplots()
-            plt.pie(
-                initial_dist['distribution'].values(),
-                labels=initial_dist['distribution'].keys(),
-                autopct='%1.1f%%'
-            )
+            fig = plot_numeric_distribution(df, variable)
             st.pyplot(fig)
-    
-    # Mostrar resto de las funciones de preparación de datos...
-
-def show_basic_eda():
-    st.title('📊 Basic Exploratory Data Analysis')
-    df = get_data(use_processed=False)
-    
-    if st.checkbox('Show Basic Statistics'):
-        st.write(df.describe())
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader('Variable Distribution')
-        variable = st.selectbox('Select a variable:', df.columns)
-        fig = plot_numeric_distribution(df, variable)
+        
+        # Statistical Summary
+        st.subheader("Statistical Summary")
+        st.write(df[variable].describe())
+        
+        # Correlation Analysis
+        st.header("Correlation Analysis")
+        
+        # Correlation Matrix
+        st.subheader("Correlation Matrix")
+        corr_matrix = get_correlation_matrix(df)
+        fig = plot_correlation_matrix(corr_matrix)
         st.pyplot(fig)
-    
-    with col2:
-        st.subheader('Correlation Matrix')
-        if st.checkbox('Show correlation matrix'):
-            corr_matrix = get_correlation_matrix(df)
-            fig = plot_correlation_matrix(corr_matrix)
-            st.pyplot(fig)
-
-def show_advanced_eda():
-    st.title('🔬 Advanced Exploratory Analysis')
-    df = get_data(use_processed=False)
-    
-    feature_types = get_feature_types(df)
-    
-    # Análisis de Balance de Clases
-    st.header('Class Balance Analysis')
-    balance_stats = analyze_class_balance(df, 'Diabetes_012')
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("Class distribution:")
-        st.write(balance_stats['counts'])
-    with col2:
-        fig = plot_class_distribution(df['Diabetes_012'])
+        
+        # High Correlations
+        st.subheader("High Correlation Pairs")
+        high_corr = get_high_correlation_pairs(df, threshold=0.5)
+        if not high_corr.empty:
+            st.write(high_corr)
+        else:
+            st.write("No high correlations found (threshold > 0.5)")
+        
+        # Target Variable Analysis
+        st.header("Target Variable Analysis")
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.countplot(data=df, x='Diabetes_012')
+        plt.title('Distribution of Diabetes Classes')
         st.pyplot(fig)
-    
-    # Mostrar resto del análisis avanzado...
+        
+        # Target variable proportions
+        st.write("Class Distribution:")
+        st.write(df['Diabetes_012'].value_counts(normalize=True).mul(100).round(2))
+        
+    except Exception as e:
+        st.error(f"Error in analysis: {str(e)}")
+        st.info("Please ensure the dataset is properly processed")
 
-def show_modeling():
-    st.title('🤖 Model Training')
-    df = get_data(use_processed=True)
-    
-    st.write("""
-    ### Model Training Configuration
-    Configure and train the Random Forest model with class balancing.
-    """)
-    
-    # Opciones de entrenamiento y visualización de resultados...
+if __name__ == "__main__":
+    main()

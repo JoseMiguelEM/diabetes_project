@@ -1,99 +1,123 @@
-# src/pages/technical_pages.py
 import streamlit as st
+from utils.session_state import initialize_session_state, get_data
+from components.eda.correlation import get_feature_correlations_with_target
+from components.eda.univariate import analyze_numeric_variables, analyze_categorical_variables
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-from utils.session_state import get_data
-from data_processing.dataset_processor import DatasetProcessor
-from components.eda.correlation import get_correlation_matrix, get_feature_correlations_with_target, get_high_correlation_pairs
-from components.eda.visualization import plot_numeric_distribution, plot_correlation_matrix, plot_class_distribution
-from components.eda.data_loader import get_feature_types
-from components.eda.balance import analyze_class_balance
+import matplotlib.pyplot as plt
 
-def show_data_preparation():
-    st.title('🔄 Data Preparation')
+def main():
+    st.set_page_config(
+        page_title="Advanced EDA - Diabetes Analysis",
+        layout="wide"
+    )
     
-    processor = DatasetProcessor()
+    initialize_session_state()
     
-    st.write("""
-    ### Dataset Processing Steps
-    Follow these steps to prepare the optimal dataset:
-    """)
+    # Verificar tipo de usuario
+    if st.session_state.user_type != 'Data Analyst':
+        st.warning("This page is only accessible to Data Analysts")
+        return
     
-    # Análisis inicial
-    st.subheader("1. Initial Analysis")
-    if st.button("Analyze Original Dataset"):
-        initial_dist = processor.load_data()
+    st.title('🔬 Advanced Exploratory Analysis')
+    
+    try:
+        df = get_data(use_processed=True)
+        
+        # Feature Analysis by Target
+        st.header("Feature Analysis by Diabetes Status")
+        
+        # Correlation with target
+        st.subheader("Feature Correlations with Diabetes")
+        target_correlations = get_feature_correlations_with_target(df, 'Diabetes_012')
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        target_correlations.plot(kind='bar')
+        plt.title('Feature Correlations with Diabetes')
+        plt.xticks(rotation=45)
+        st.pyplot(fig)
+        
+        # Detailed Feature Analysis
+        st.header("Detailed Feature Analysis")
+        
+        # Numeric Variables
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+        numeric_stats = analyze_numeric_variables(df, numeric_cols)
+        
+        st.subheader("Numeric Variables Analysis")
+        for col, stats in numeric_stats.items():
+            if col != 'Diabetes_012':  # Excluir variable objetivo
+                with st.expander(f"Analysis of {col}"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("Basic Statistics:")
+                        basic_stats = {
+                            'Mean': stats['mean'],
+                            'Median': stats['median'],
+                            'Std Dev': stats['std'],
+                            'Min': stats['min'],
+                            'Max': stats['max']
+                        }
+                        st.write(pd.DataFrame([basic_stats]).T)
+                    
+                    with col2:
+                        st.write("Distribution Characteristics:")
+                        dist_stats = {
+                            'Skewness': stats['skewness'],
+                            'Kurtosis': stats['kurtosis'],
+                            'Outliers Count': stats['outliers']['count'],
+                            'Outliers %': f"{stats['outliers']['percentage']:.2f}%"
+                        }
+                        st.write(pd.DataFrame([dist_stats]).T)
+                    
+                    # Visualization
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+                    
+                    # Distribution plot
+                    sns.histplot(data=df, x=col, hue='Diabetes_012', multiple="stack", ax=ax1)
+                    ax1.set_title(f'Distribution of {col} by Diabetes Status')
+                    
+                    # Box plot
+                    sns.boxplot(data=df, y=col, x='Diabetes_012', ax=ax2)
+                    ax2.set_title(f'Box Plot of {col} by Diabetes Status')
+                    
+                    st.pyplot(fig)
+        
+        # Bivariate Analysis
+        st.header("Bivariate Analysis")
         
         col1, col2 = st.columns(2)
         with col1:
-            st.write("Class Distribution:")
-            st.write(pd.DataFrame({
-                'Class': initial_dist['distribution'].keys(),
-                'Count': initial_dist['distribution'].values(),
-                'Percentage': [f"{v:.2f}%" for v in initial_dist['percentages'].values()]
-            }))
-        
+            var1 = st.selectbox('Select first variable', numeric_cols)
         with col2:
-            fig, ax = plt.subplots()
-            plt.pie(
-                initial_dist['distribution'].values(),
-                labels=initial_dist['distribution'].keys(),
-                autopct='%1.1f%%'
-            )
-            st.pyplot(fig)
-    
-    # Mostrar resto de las funciones de preparación de datos...
-
-def show_basic_eda():
-    st.title('📊 Basic Exploratory Data Analysis')
-    df = get_data(use_processed=False)
-    
-    if st.checkbox('Show Basic Statistics'):
-        st.write(df.describe())
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader('Variable Distribution')
-        variable = st.selectbox('Select a variable:', df.columns)
-        fig = plot_numeric_distribution(df, variable)
+            var2 = st.selectbox('Select second variable', 
+                              [col for col in numeric_cols if col != var1])
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.scatterplot(data=df, x=var1, y=var2, hue='Diabetes_012', alpha=0.6)
+        plt.title(f'Relationship between {var1} and {var2}')
         st.pyplot(fig)
-    
-    with col2:
-        st.subheader('Correlation Matrix')
-        if st.checkbox('Show correlation matrix'):
-            corr_matrix = get_correlation_matrix(df)
-            fig = plot_correlation_matrix(corr_matrix)
-            st.pyplot(fig)
+        
+        # Correlation Analysis by Diabetes Status
+        st.header("Correlation Analysis by Diabetes Status")
+        
+        diabetes_levels = df['Diabetes_012'].unique()
+        tabs = st.tabs([f"Diabetes Level {level}" for level in diabetes_levels])
+        
+        for level, tab in zip(diabetes_levels, tabs):
+            with tab:
+                subset = df[df['Diabetes_012'] == level]
+                corr_matrix = subset.corr()
+                
+                fig, ax = plt.subplots(figsize=(12, 8))
+                sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0)
+                plt.title(f'Correlation Matrix for Diabetes Level {level}')
+                st.pyplot(fig)
+        
+    except Exception as e:
+        st.error(f"Error in analysis: {str(e)}")
+        st.info("Please ensure the dataset is properly processed")
 
-def show_advanced_eda():
-    st.title('🔬 Advanced Exploratory Analysis')
-    df = get_data(use_processed=False)
-    
-    feature_types = get_feature_types(df)
-    
-    # Análisis de Balance de Clases
-    st.header('Class Balance Analysis')
-    balance_stats = analyze_class_balance(df, 'Diabetes_012')
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("Class distribution:")
-        st.write(balance_stats['counts'])
-    with col2:
-        fig = plot_class_distribution(df['Diabetes_012'])
-        st.pyplot(fig)
-    
-    # Mostrar resto del análisis avanzado...
-
-def show_modeling():
-    st.title('🤖 Model Training')
-    df = get_data(use_processed=True)
-    
-    st.write("""
-    ### Model Training Configuration
-    Configure and train the Random Forest model with class balancing.
-    """)
-    
-    # Opciones de entrenamiento y visualización de resultados...
+if __name__ == "__main__":
+    main()

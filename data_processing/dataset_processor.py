@@ -7,7 +7,7 @@ from collections import Counter
 import os
 
 class DatasetProcessor:
-    def __init__(self, input_path='data/dataset.csv', output_path='data/dataset-final.csv'):
+    def __init__(self, input_path='/data/dataset.csv', output_path='data/dataset-final.csv'):
         self.input_path = input_path
         self.output_path = output_path
         self.df = None

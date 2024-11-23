@@ -1,16 +1,28 @@
-# src/pages/dataset_processing.py
 import streamlit as st
+from utils.session_state import initialize_session_state
 from data_processing.dataset_processor import DatasetProcessor
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def show_dataset_processing_page():
+def main():
+    st.set_page_config(
+        page_title="Dataset Processing - Diabetes Analysis",
+        layout="wide"
+    )
+    
+    initialize_session_state()
+    
+    # Verificar tipo de usuario
+    if st.session_state.user_type != 'Data Analyst':
+        st.warning("This page is only accessible to Data Analysts")
+        return
+    
     st.title("🔄 Dataset Processing and Optimization")
     
     st.write("""
     ### Dataset Optimization Process
-    This section allows you to process and optimize the dataset following these steps:
+    This section processes and optimizes the dataset following these steps:
     1. Initial data analysis
     2. Data normalization
     3. Class balancing
@@ -110,3 +122,6 @@ def show_dataset_processing_page():
         else:
             st.error("Error generating final dataset. Please run previous steps first.")
             st.info("Make sure to run steps 1-3 before generating the final dataset.")
+
+if __name__ == "__main__":
+    main()
