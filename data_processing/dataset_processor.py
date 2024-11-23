@@ -1,15 +1,16 @@
-# src/data_processing/dataset_processor.py
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import RobustScaler, StandardScaler
 from imblearn.under_sampling import RandomUnderSampler
 from collections import Counter
 import os
+from utils.project_utils import get_project_root
 
 class DatasetProcessor:
-    def __init__(self, input_path='/data/dataset.csv', output_path='data/dataset-final.csv'):
-        self.input_path = input_path
-        self.output_path = output_path
+    def __init__(self):
+        project_root = get_project_root()
+        self.input_path = os.path.join(project_root, 'data', 'dataset.csv')
+        self.output_path = os.path.join(project_root, 'data', 'dataset-final.csv')
         self.df = None
         self.df_normalized = None
         self.df_balanced = None
@@ -69,21 +70,27 @@ class DatasetProcessor:
         X = self.df_normalized.drop('Diabetes_012', axis=1)
         y = self.df_normalized['Diabetes_012']
         
-        # Calcular las cantidades para el balanceo 40/30/30
-        total_desired = len(self.df) // 2  # Reducimos el dataset a la mitad
-        class_0_size = int(total_desired * 0.4)  # 40% para clase 0
-        class_1_size = int(total_desired * 0.3)  # 30% para clase 1
-        class_2_size = int(total_desired * 0.3)  # 30% para clase 2
+        # Obtener conteos actuales
+        current_counts = pd.Series(y).value_counts()
         
-        sampling_strategy = {
-            0: class_0_size,
-            1: class_1_size,
-            2: class_2_size
+        # Encontrar la clase minoritaria
+        min_class_count = current_counts.min()
+        
+        # Calcular las cantidades objetivo basadas en la clase minoritaria
+        target_counts = {
+            0: int(min_class_count * 1.33),  # 40% del total
+            1: min_class_count,              # 30% del total
+            2: min_class_count               # 30% del total
         }
+        
+        # Asegurarse de que no excedemos los conteos originales
+        for class_label in target_counts:
+            if target_counts[class_label] > current_counts[class_label]:
+                target_counts[class_label] = current_counts[class_label]
         
         # Aplicar undersampling
         undersampler = RandomUnderSampler(
-            sampling_strategy=sampling_strategy,
+            sampling_strategy=target_counts,
             random_state=42
         )
         
