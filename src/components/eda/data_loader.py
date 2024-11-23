@@ -1,10 +1,21 @@
+# src/components/eda/data_loader.py
 import pandas as pd
 import numpy as np
+import os
 
-def load_dataset(filepath='../data/dataset.csv'):
+def load_dataset(filepath=None):
     """
     Carga el dataset y realiza la preparación inicial
     """
+    if filepath is None:
+        # Construir ruta relativa desde la ubicación del script
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+        filepath = os.path.join(project_root, 'data', 'dataset.csv')
+    
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"No se encontró el archivo en: {filepath}")
+        
     df = pd.read_csv(filepath)
     return df
 
