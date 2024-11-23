@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.session_state import initialize_session_state
-
+#Hola genteeeeee
 def main():
     st.set_page_config(
         page_title="General Information - Diabetes Analysis",
