@@ -2,24 +2,43 @@ import streamlit as st
 import os
 from components.eda.data_loader import load_dataset
 from data_processing.dataset_processor import DatasetProcessor
+from model_training.model_trainer import ModelTrainer
 from utils.project_utils import get_project_root
 
-def process_dataset_if_needed():
-    """Procesa el dataset si no existe la versión procesada"""
+def process_and_train_if_needed():
+    """Procesa el dataset y entrena el modelo si no existen"""
     project_root = get_project_root()
     processed_path = os.path.join(project_root, 'data', 'dataset-final.csv')
+    model_path = os.path.join(project_root, 'models', 'diabetes_model.pkl')
     
+    # Procesar dataset si no existe
     if not os.path.exists(processed_path):
         processor = DatasetProcessor()
         results = processor.process_dataset()
         if not results['success']:
             raise Exception("Error al procesar el dataset")
+    
+    # Entrenar modelo si no existe
+    if not os.path.exists(model_path):
+        # Cargar dataset procesado
+        df = pd.read_csv(processed_path)
+        X = df.drop('Diabetes_012', axis=1)
+        y = df['Diabetes_012']
+        
+        # Split the data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        # Entrenar modelo
+        trainer = ModelTrainer()
+        trainer.train_and_evaluate(X_train, y_train, X_test, y_test)
 
 def initialize_session_state():
     """Inicializa el estado global de la aplicación"""
     if 'data_loaded' not in st.session_state:
-        # Procesar dataset automáticamente si no existe
-        process_dataset_if_needed()
+        # Procesar dataset y entrenar modelo automáticamente si no existen
+        process_and_train_if_needed()
         
         st.session_state.data_loaded = False
         st.session_state.df = None
@@ -27,6 +46,10 @@ def initialize_session_state():
     
     if 'user_type' not in st.session_state:
         st.session_state.user_type = 'General User'
+
+def get_project_root():
+    """Obtiene la ruta raíz del proyecto"""
+    return r"C:\Proyecto vscode\diabetes_project"
 
 def get_data(use_processed=True):
     """Obtiene el dataset apropiado según el contexto"""
@@ -38,8 +61,8 @@ def get_data(use_processed=True):
             
         project_root = get_project_root()
         
-        # Siempre procesar el dataset si no existe
-        process_dataset_if_needed()
+        # Siempre procesar el dataset y entrenar si no existen
+        process_and_train_if_needed()
         
         if use_processed:
             filepath = os.path.join(project_root, 'data', 'dataset-final.csv')
