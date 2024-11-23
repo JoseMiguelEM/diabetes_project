@@ -1,0 +1,18 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+*.class
+.env
+.venv
+env/
+ENV/
+.vscode/
+*.log
+dist/
+build/
+*.egg-info/
