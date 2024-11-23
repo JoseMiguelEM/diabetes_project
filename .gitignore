@@ -5,14 +5,19 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
-*.py[cod]
-*.class
+env/
 .env
 .venv
-env/
 ENV/
+
+# Notebooks
+.ipynb_checkpoints
+
+# VS Code
 .vscode/
-*.log
-dist/
-build/
-*.egg-info/
+
+# Modelos
+*.pkl
+
+# Dataset
+# data/*.csv  # Comenta esta línea si quieres incluir el dataset en el repo
