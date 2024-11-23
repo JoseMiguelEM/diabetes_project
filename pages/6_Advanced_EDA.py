@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-#COmentario 
+
 
 def main():
     st.set_page_config(
