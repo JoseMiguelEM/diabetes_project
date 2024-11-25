@@ -4,6 +4,7 @@ from model_training.model_trainer import ModelTrainer
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 def main():
     st.set_page_config(
@@ -13,7 +14,6 @@ def main():
     
     initialize_session_state()
     
-    # Verificar tipo de usuario
     if st.session_state.user_type != 'Data Analyst':
         st.warning("This page is only accessible to Data Analysts")
         return
@@ -21,7 +21,6 @@ def main():
     st.title("🤖 Model Analysis and Performance")
     
     try:
-        # Inicializar trainer y cargar resultados
         trainer = ModelTrainer()
         trainer.load_results()
         summary = trainer.get_training_summary()
@@ -34,12 +33,23 @@ def main():
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Sensitivity and Specificity")
+                st.subheader("Sensitivity (Recall) and Specificity")
                 sens_spec_df = pd.DataFrame({
                     'Sensitivity': summary['sensitivity_per_class'],
                     'Specificity': summary['specificity_per_class']
                 })
                 st.write(sens_spec_df)
+                
+                # Calcular y mostrar falsos negativos por clase
+                st.subheader("False Negatives by Class")
+                fn_df = pd.DataFrame({
+                    'False Negative Rate': {
+                        class_name: (1 - sens) * 100  # Convertir a porcentaje
+                        for class_name, sens in summary['sensitivity_per_class'].items()
+                    }
+                })
+                st.write("Percentage of cases missed by the model:")
+                st.write(fn_df.style.format("{:.2f}%"))
             
             with col2:
                 st.subheader("Precision and Recall")
@@ -48,68 +58,87 @@ def main():
                     'Recall': summary['recall_per_class']
                 })
                 st.write(prec_recall_df)
+                
+                # Calcular y mostrar F1-Score
+                st.subheader("F1-Score by Class")
+                f1_scores = {
+                    class_name: 2 * (prec * rec) / (prec + rec)
+                    for (class_name, prec), (_, rec) in zip(
+                        summary['precision_per_class'].items(),
+                        summary['recall_per_class'].items()
+                    )
+                }
+                st.write(pd.DataFrame({'F1-Score': f1_scores}))
             
-            # Mostrar visualizaciones
-            st.header("Model Insights")
+            # Matriz de Confusión
+            st.header("Confusion Matrix")
+            if 'confusion_matrix' in summary:
+                fig, ax = plt.subplots(figsize=(10, 8))
+                conf_matrix = summary['confusion_matrix']
+                
+                # Calcular porcentajes
+                conf_matrix_percent = conf_matrix / conf_matrix.sum(axis=1)[:, np.newaxis] * 100
+                
+                sns.heatmap(conf_matrix_percent, 
+                           annot=True, 
+                           fmt='.1f', 
+                           cmap='Blues',
+                           xticklabels=['No Diabetes', 'Prediabetes', 'Diabetes'],
+                           yticklabels=['No Diabetes', 'Prediabetes', 'Diabetes'])
+                plt.title('Confusion Matrix (Percentages)')
+                plt.ylabel('True Label')
+                plt.xlabel('Predicted Label')
+                st.pyplot(fig)
+                
+                # Explicación de la matriz
+                st.write("""
+                **Interpretation:**
+                - Diagonal values show correct predictions (%)
+                - Off-diagonal values show misclassifications (%)
+                - Higher values in diagonal = better performance
+                """)
+            
+            # Visualizaciones del modelo
+            st.header("Model Visualizations")
             
             plot_paths = trainer.get_model_performance_plots()
             
-            tab1, tab2, tab3, tab4 = st.tabs([
-                "Confusion Matrix",
+            tab1, tab2 = st.tabs([
                 "ROC Curves",
-                "Feature Importance",
-                "SHAP Analysis"
+                "Feature Importance"
             ])
             
             with tab1:
-                if plot_paths['confusion_matrix']:
-                    st.image(plot_paths['confusion_matrix'])
-                    st.write("""
-                    The confusion matrix shows the model's performance across all classes.
-                    - Diagonal values represent correct predictions
-                    - Off-diagonal values represent misclassifications
-                    """)
-            
-            with tab2:
                 if plot_paths['roc_curves']:
                     st.image(plot_paths['roc_curves'])
                     st.write("""
-                    ROC curves show the tradeoff between sensitivity and specificity.
-                    - Higher AUC indicates better model performance
-                    - Curves closer to the top-left corner indicate better classification
+                    ROC curves show model's ability to distinguish between classes:
+                    - Higher AUC indicates better classification
+                    - Curves closer to top-left corner = better performance
                     """)
             
-            with tab3:
+            with tab2:
                 if plot_paths['feature_importance']:
                     st.image(plot_paths['feature_importance'])
                     st.write("""
-                    Feature importance shows which factors most influence the model's predictions.
-                    - Longer bars indicate more important features
-                    - This helps identify key risk factors for diabetes
+                    Feature importance indicates most influential factors:
+                    - Longer bars = stronger influence on predictions
+                    - Helps identify key diabetes risk factors
                     """)
             
-            with tab4:
-                if plot_paths['shap_summary']:
-                    st.image(plot_paths['shap_summary'])
-                    st.write("""
-                    SHAP values explain how each feature contributes to predictions.
-                    - Color indicates feature value (red = high, blue = low)
-                    - Width shows the magnitude of the feature's impact
-                    """)
+            # Resumen general del rendimiento
+            st.header("Overall Performance Summary")
+            avg_metrics = {
+                'Average Precision': np.mean(list(summary['precision_per_class'].values())),
+                'Average Recall': np.mean(list(summary['recall_per_class'].values())),
+                'Average F1-Score': np.mean(list(f1_scores.values())),
+                'False Negative Rate': np.mean(fn_df['False Negative Rate'])
+            }
             
-            # Conclusiones y recomendaciones
-            st.header("Model Insights and Recommendations")
-            st.write("""
-            ### Key Findings:
-            1. The model shows balanced performance across all diabetes classes
-            2. Special attention is given to minimizing false negatives in diabetes detection
-            3. Feature importance analysis reveals key risk factors
-            
-            ### Model Usage Guidelines:
-            - The model is optimized for early detection of diabetes risk
-            - Predictions should be used as a screening tool, not final diagnosis
-            - Regular model monitoring and updates are recommended
-            """)
+            st.write(pd.DataFrame({
+                'Metric': list(avg_metrics.keys()),
+                'Value': [f"{v:.2f}%" for v in [x * 100 for x in avg_metrics.values()]]
+            }))
             
         else:
             st.error("Model results not found. Please contact system administrator.")

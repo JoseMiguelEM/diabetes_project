@@ -9,7 +9,7 @@ import seaborn as sns
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_curve, auc
 import os
-
+import shap
 class DiabetesModel:
     def __init__(self):
         self.model = None
@@ -20,49 +20,55 @@ class DiabetesModel:
         self.metrics_path = os.path.join(self.models_dir, 'model_metrics.joblib')
         self.feature_names = None
     
-    
     def train(self, X, y):
-        """
-        Entrena el modelo de Random Forest optimizado para diabetes
-        """
-        # División train-test
+        """Entrena el modelo de Random Forest optimizado para diabetes"""
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
         
-        # Configurar modelo con pesos ajustados para priorizar falsos positivos
         class_weights = {
             0: 1.0,    # No diabetes
-            1: 1.5,    # Prediabetes (penaliza más los falsos negativos)
-            2: 2.0     # Diabetes (penaliza aún más los falsos negativos)
+            1: 1.5,    # Prediabetes
+            2: 2.0     # Diabetes
         }
         
-        # Configurar Random Forest con parámetros optimizados
         self.model = RandomForestClassifier(
-            n_estimators=400,
-            max_depth=15,
+            n_estimators=200,
+            max_depth=10,
             min_samples_split=5,
             min_samples_leaf=2,
-            class_weight='balanced',
+            class_weight=class_weights,
             random_state=42,
             n_jobs=-1
         )
         
-        # Guardar nombres de características
         self.feature_names = X.columns.tolist()
-        
-        # Entrenar modelo
         self.model.fit(X_train, y_train)
         
-        # Calcular y guardar métricas
         metrics = self.evaluate_model(X_test, y_test)
         self.save_metrics(metrics)
-        
-        # Guardar el modelo entrenado
         self.save_model()
         
         return metrics
     
+    def plot_shap_summary(self, X_test):
+        """Genera el gráfico de resumen SHAP"""
+        if self.model is None:
+            self.load_model()
+            
+        explainer = shap.TreeExplainer(self.model)
+        shap_values = explainer.shap_values(X_test)
+        
+        plt.figure(figsize=(10, 8))
+        shap.summary_plot(
+            shap_values, 
+            X_test,
+            feature_names=self.feature_names,
+            show=False
+        )
+        plt.title("SHAP Feature Importance")
+        
+        return plt.gcf()
     def evaluate_model(self, X_test, y_test):
         """
         Evalúa el modelo con múltiples métricas

@@ -6,18 +6,19 @@ from model_training.model_trainer import ModelTrainer
 from utils.project_utils import get_project_root
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
 def process_and_train_if_needed():
     """Procesa el dataset y entrena el modelo si no existen"""
     project_root = get_project_root()
     processed_path = os.path.join(project_root, 'data', 'dataset-final.csv')
-    model_path = os.path.join(project_root, 'models', 'diabetes_model.pkl')
+    model_path = os.path.join(project_root, 'models', 'diabetes_model.joblib')
     
     # Procesar dataset si no existe
     if not os.path.exists(processed_path):
         processor = DatasetProcessor()
         results = processor.process_dataset()
         if not results['success']:
-            raise Exception("Error al procesar el dataset")
+            raise Exception("Error processing dataset")
     
     # Entrenar modelo si no existe
     if not os.path.exists(model_path):
@@ -47,10 +48,6 @@ def initialize_session_state():
     
     if 'user_type' not in st.session_state:
         st.session_state.user_type = 'General User'
-
-def get_project_root():
-    """Obtiene la ruta raíz del proyecto"""
-    return r"C:\Proyecto vscode\diabetes_project"
 
 def get_data(use_processed=True):
     """Obtiene el dataset apropiado según el contexto"""
