@@ -20,6 +20,7 @@ class DiabetesModel:
         self.metrics_path = os.path.join(self.models_dir, 'model_metrics.joblib')
         self.feature_names = None
     
+    
     def train(self, X, y):
         """
         Entrena el modelo de Random Forest optimizado para diabetes
@@ -38,11 +39,11 @@ class DiabetesModel:
         
         # Configurar Random Forest con parámetros optimizados
         self.model = RandomForestClassifier(
-            n_estimators=200,
-            max_depth=10,
+            n_estimators=400,
+            max_depth=15,
             min_samples_split=5,
             min_samples_leaf=2,
-            class_weight=class_weights,
+            class_weight='balanced',
             random_state=42,
             n_jobs=-1
         )
